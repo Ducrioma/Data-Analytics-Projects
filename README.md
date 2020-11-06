@@ -1,6 +1,7 @@
 # Data Analytics Projects
 
 ## TO DO 
+## Phase 1 : Core Analysis
 ### Part 1
 
  - [X] Find the "average availability over 30 days" of listings per each city.
@@ -20,3 +21,20 @@ For each city :
  - [ ] What is the average revenue over the next 30 days for each room type / house size / neighborhood?
  - [ ] What is the distribution of availability over the next 30 days for each room type / house size / neighborhood?
  - [ ] What is the distribution of revenue over the next 30 days for each room type / house size / neighborhood?
+
+### Bonus :
+For each city :
+- [X] Fetch the price of squaremeter in each city : fixed cost
+- [X] Fetch the price of the electricity and water in each city : variable cost 
+- [X] Compute the breakeven point in days and in € : Fixed Cost / (Income-variable cost)
+
+#### Additional Data :
+Data extracted by this [website](https://www.combien-coute.net/)
+
+
+|Ville| Sevilla  | Malaga | Majorqua  | 
+|--|--|--|--|
+|Square Meter| **2516.67 €** | **2842.86 €** | **3483.33 €** |
+|Variable Expenses| **126.44 €** | **112.01 €** | **107.92 €**|
+
+
