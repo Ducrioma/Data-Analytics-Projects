@@ -17,10 +17,10 @@ For each city :
  - [X] What is the proportion of each room type?
  - [X] What is the proportion of each house size (# of bedroom)?
  - [X] What is the proportion of each neighborhood?
- - [ ] What is the average availability over the next 30 days for each room type / house size / neighborhood?
- - [ ] What is the average revenue over the next 30 days for each room type / house size / neighborhood?
- - [ ] What is the distribution of availability over the next 30 days for each room type / house size / neighborhood?
- - [ ] What is the distribution of revenue over the next 30 days for each room type / house size / neighborhood?
+ - [ ] What is the average availability over the next 30 days for each room type / house size / neighborhood? -> Metric
+ - [ ] What is the average revenue over the next 30 days for each room type / house size / neighborhood? -> Metric
+ - [X] What is the distribution of availability over the next 30 days for each room type / house size / neighborhood? -> Distrib plot
+ - [ ] What is the distribution of revenue over the next 30 days for each room type / house size / neighborhood? -> Distrib plot
 
 ### Bonus :
 For each city :
