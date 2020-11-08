@@ -1,6 +1,8 @@
 ---
-title: An R Markdown document converted from "Airbnb Data Analysis.ipynb"
-output: html_document
+title: "An R Markdown document converted from "Airbnb Data Analysis.ipynb""
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 # Airbnb Data Analysis
@@ -24,6 +26,7 @@ Barras Pierre-Mathieu
 ```{r}
 # Need to install this package first
 # install.packages("stringi")
+# install.packages("repr")
 ```
 
 ```{r}
@@ -32,6 +35,7 @@ library(dplyr)
 library(stringr)
 library(ggplot2)
 library(data.table)
+library(repr)
 ```
 
 ```{r}
@@ -488,6 +492,11 @@ aggregated_revenue(selected_city)
 #### 6. What is the distribution of availability over the next 30 days for each room type/ house size / neighborhood?
 
 ```{r}
+
+```
+
+
+```{r}
 options(repr.plot.width = 25, repr.plot.height = 10)
 availability_plotting(selected_city)
 ```
@@ -538,8 +547,10 @@ aggregated_revenue(selected_city)
 #### 6. What is the distribution of availability over the next 30 days for each room type/ house size / neighborhood?
 
 ```{r}
-options(repr.plot.width = 40, repr.plot.height = 15)
+# options(repr.plot.width = 40, repr.plot.height = 15)
 availability_plotting(selected_city)
+
+
 ```
 
 #### 7. What is the distribution of revenue over the next 30 days for each room type / house size / neighborhood? 
