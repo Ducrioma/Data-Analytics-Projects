@@ -1,0 +1,640 @@
+---
+title: An R Markdown document converted from "Airbnb Data Analysis.ipynb"
+output: html_document
+---
+
+# Airbnb Data Analysis
+
+Data from [Inside Airbnb](http://insideairbnb.com/get-the-data.html)
+
+Command to convert the ipynb to rmkdwn : ```rmarkdown:::convert_ipynb('Airbnb Data Analysis.ipynb')```
+
+## Equipe
+
+Sorrin Marius
+
+Marini Camille
+
+Barras Pierre-Mathieu
+
+## Data Preparation
+1. Prepare data set for each city
+2. Clean data for each city
+
+```{r}
+# Need to install this package first
+# install.packages("stringi")
+```
+
+```{r}
+library(dplyr)
+# issue with this one
+library(stringr)
+library(ggplot2)
+library(data.table)
+```
+
+```{r}
+# Choosing size of ggplot panels layout
+options(repr.plot.width = 10, repr.plot.height = 5)
+```
+
+```{r}
+# Function from the data_prep script
+
+# a generic function to prepare data for a specific city, data_date
+prepare_data <- function(city, data_date)
+{
+    # Cleaning listings dataframe
+    
+    # suppose raw data is stored in data_raw/city/data_date/listings.csv.gz
+    listings_url <- file.path("data_raw", city, data_date, "listings.csv.gz")
+    # suppose raw data is stored in data_raw/city/data_date/calendar.csv.gz
+    calendar_url <- file.path("data_raw", city, data_date, "calendar.csv.gz")
+    
+    print(paste0("reading data from ", listings_url))
+    listings <- read.csv(gzfile(listings_url))
+    print(paste0("reading data from ", calendar_url))
+    calendar <- read.csv(gzfile(calendar_url))
+    
+    ## Add Keys: columns city and day date
+    listings$city <- city
+    listings$data_date <- data_date
+    
+    ## Select interesting columns
+    ### Most columns don't contain interesting information
+    columns_listings <- c("city", "data_date", "id", "neighbourhood_cleansed", 
+                          "latitude", "longitude", 
+                          "property_type", "room_type", "accommodates", "bedrooms", 
+                          "beds", "price", "minimum_nights",  "maximum_nights")
+    
+    listings <- listings %>% 
+        select(columns_listings) %>% 
+        arrange(id)
+    
+    
+    # Cleaning calendar dataframe
+    
+    ## arrange by id and date
+    calendar <- calendar %>% 
+        arrange(listing_id, date)
+    
+    ## add day number (starting first day)
+    calendar <- calendar %>%
+        group_by(listing_id) %>%
+        mutate(day_nb = row_number()) %>%
+        ungroup()
+    
+    ## change available column to binary
+    calendar <- calendar %>%
+        mutate(available = ifelse(available=="t", 1, 0))
+    
+    ## clean price column and transform to numeric
+    calendar <- calendar %>%
+        mutate(price = str_replace(price, "\\$", ""),
+               adjusted_price = str_replace(adjusted_price, "\\$", ""))
+    calendar <- calendar %>%
+        mutate(price = str_replace(price, ",", ""),
+               adjusted_price = str_replace(adjusted_price, ",", ""))
+    calendar <- calendar %>%
+        mutate(price = as.numeric(price),
+               adjusted_price = as.numeric(adjusted_price))
+    
+    ## calculate estimated revenue for upcoming day
+    calendar <- calendar %>%
+        mutate(revenue = price*(1-available))
+    
+    ## calculate availability, price, revenue for next 30, 60 days ... for each listing_id
+    calendar <- calendar %>%
+        group_by(listing_id) %>%
+        summarise(availability_30 = sum(available[day_nb<=30], na.rm = TRUE),
+                  availability_60 = sum(available[day_nb<=60], na.rm = TRUE),
+                  availability_90 = sum(available[day_nb<=90], na.rm = TRUE),
+                  availability_365 = sum(available[day_nb<=365], na.rm = TRUE),
+                  price_30 = mean(price[day_nb<=30 & available==0], na.rm = TRUE),
+                  price_60 = mean(price[day_nb<=60 & available==0], na.rm = TRUE),
+                  price_90 = mean(price[day_nb<=90 & available==0], na.rm = TRUE),
+                  price_365 = mean(price[day_nb<=365 & available==0], na.rm = TRUE),
+                  revenue_30 = sum(revenue[day_nb<=30], na.rm = TRUE),
+                  revenue_60 = sum(revenue[day_nb<=60], na.rm = TRUE),
+                  revenue_90 = sum(revenue[day_nb<=90], na.rm = TRUE),
+                  revenue_365 = sum(revenue[day_nb<=365], na.rm = TRUE)           
+        )
+    
+    listings_cleansed <- listings %>% left_join(calendar, by = c("id" = "listing_id"))
+    
+    dir.create(file.path("data_cleansed", city, data_date), recursive = TRUE)
+    
+    write.csv(listings_cleansed, file.path("data_cleansed", city, data_date, "listings.csv"))
+    print(paste0("saving data into ", file.path("data_cleansed", city, data_date, "listings.csv")))
+    
+}  
+```
+
+### Unit test : Reading data for malaga:
+#### Preparing data, working ✅
+
+```{r}
+# city <- "malaga"
+# data_date <- "2020-06-30"
+# prepare_data(city,data_date)
+```
+
+# Prepare data for all selected cities 
+
+```{r}
+# Reading cleansed data
+cities <- c("malaga", "mallorca", "sevilla")
+data_dates <- c("2020-06-30", "2020-09-19", "2020-06-29")
+
+# We are only interested in data between min_date and max_date
+min_date <- '2020-05-01'
+max_date <- '2020-11-01'
+
+files_paths <- c()
+```
+
+### Preparare data for Malaga, mallorca, sevilla
+
+```{r}
+for(i in 1:length(cities)){
+    city <- cities[i]
+    data_date <- data_dates[i]
+    print("-------------------------------------------------")
+    print(paste(c("Preparing data for", city, "compiled at", data_date), collapse = " "))
+    prepare_data(city, data_date)
+}
+
+# Clean Environment
+rm(list=ls())
+```
+
+```{r}
+# Reading cleansed data
+cities <- c("malaga", "mallorca", "sevilla")
+data_dates <- c("2020-06-30", "2020-09-19", "2020-06-29")
+
+# We are only interested in data between min_date and max_date
+min_date <- '2020-05-01'
+max_date <- '2020-11-01'
+
+files_paths <- c()
+```
+
+### Read data in cities between min_date and max_date
+
+```{r}
+for(city in cities){
+    file_dir <- file.path(".", "data_cleansed", city)
+    file_subdirs <- list.dirs(file_dir)
+    file_subdirs <- file_subdirs[-1]
+
+    for(file_subdir in file_subdirs){
+        if(file_subdir < file.path(file_dir, min_date) | file_subdir > file.path(file_dir, max_date)  )
+            file_subdirs = file_subdirs[file_subdirs != file_subdir]
+    }
+    files_paths <- c(files_paths, file_subdirs)
+}
+files_paths <- file.path(files_paths, "listings.csv")
+listings <- 
+    do.call(rbind,
+            lapply(files_paths, read.csv, row.names=1))
+```
+
+```{r}
+summary(listings)
+```
+
+### Make a copy of the full dataset
+
+```{r}
+listings_full <- listings[complete.cases(listings), ]
+```
+
+### Preprocessing 
+
+```{r}
+listings$bedrooms <- ifelse(listings$bedrooms >= 5, "5+", listings$bedrooms)
+
+# to do : break even point
+# steps 1 : find the average price for the squarre meter in the city --> fixed costs 
+# steps 2 : find the average price for the electricity and gas for --> variable costs 
+# steps 3 : compute the break even point in day
+```
+
+```{r}
+summary(listings)
+```
+
+## Example of analysis
+
+```{r}
+# Analysis 1
+## Comparing the distribution of estimated revenue for the next 30 days of listings
+## per each city.
+p <- ggplot(listings, aes(city, revenue_30))
+p + geom_boxplot(aes(colour = "red"), outlier.shape = NA) +
+    scale_y_continuous(limits = quantile(listings$revenue_30, c(0.1, 0.9), na.rm = T))
+```
+
+## Analysis 1 : comparing cities
+
+#### 1. Find the "average availability over 30 days" of listings per each city
+
+```{r}
+avg_av <- aggregate(listings$availability_30, list(listings$city),mean)
+```
+
+```{r}
+avg_av
+```
+
+#### 2. Find the "average revenue over 30 days" of listings per each city
+
+```{r}
+avg_rev <- aggregate(listings$revenue_30,list(listings$city),mean)
+```
+
+```{r}
+avg_rev
+```
+
+#### 3. Compare the distribution of estimated availability for the next 30 days of listings per each city
+[source](http://www.sthda.com/french/wiki/ggplot2-courbe-de-distribution-guide-de-demarrage-rapide-logiciel-r-et-visualisation-de-donnees)
+
+```{r}
+distrib_av <- ggplot(listings, aes(city, availability_30))
+distrib_av + geom_boxplot(aes(colour = "red"), outlier.shape = NA) +
+    scale_y_continuous(limits = quantile(listings$availability_30, c(0.1, 0.9), na.rm = T))
+```
+
+#### 4. Compare the distribution of estimated revenue for the next 30 days of listings per each city
+
+```{r}
+distrib_rv <- ggplot(listings, aes(city, revenue_30))
+distrib_rv + geom_boxplot(aes(colour = "red"), outlier.shape = NA) +
+    scale_y_continuous(limits = quantile(listings$revenue_30, c(0.1, 0.9), na.rm = T))
+```
+
+#### 5. Compare the distribution of estimated revenue for the next 30 days of listings per each city & for each house size (# of bedrooms)
+
+```{r}
+specified <- listings[complete.cases(listings), ]
+distrib_rv_hsize <- ggplot(specified, aes(bedrooms, revenue_30))
+distrib_rv_hsize + geom_boxplot(aes(colour = "red"), outlier.shape = NA) +
+    scale_y_continuous(limits = quantile(listings$revenue_30, c(0.1, 0.9), na.rm = T)) + 
+    facet_wrap(~ city)
+```
+
+#### 6. Compare the distribution of estimated revenue for the next 30 days of listings per each city  & for each room type (room_type)
+
+```{r}
+distrib_rv_hsize <- ggplot(listings, aes(room_type, revenue_30))
+distrib_rv_hsize + geom_boxplot(aes(colour = "red"), outlier.shape = NA) +
+    scale_y_continuous(limits = quantile(listings$revenue_30, c(0.1, 0.9), na.rm = T)) + 
+    facet_wrap(~ city)+ 
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## Analysis 2 : Deep Dive in one City Analysis
+
+### Functions
+
+#### Proportion of each room type
+
+```{r}
+aggregated_room_types <- function(selected_city){
+      listings %>%
+      filter(city == selected_city) %>%
+      group_by(room_type) %>%
+      summarise(nb_rooms = n()) %>%
+      mutate(freq = nb_rooms / sum(nb_rooms))
+}
+```
+
+#### Proportion of each house size (# of bedroom)
+
+```{r}
+aggregated_house_size <- function(selected_city){ 
+    proportion <- listings %>%
+    filter(city == selected_city) %>%
+    group_by(bedrooms) %>%
+    summarise(houze_size = n()) %>%
+    mutate(freq = houze_size / sum(houze_size))
+    
+    # Removing NA
+    proportion[complete.cases(proportion), ]
+}
+```
+
+#### Proportion of each neighborhood
+
+```{r}
+aggregated_neighborhood <- function(selected_city){ 
+    proportion <- listings %>%
+    filter(city == selected_city) %>%
+    group_by(neighbourhood_cleansed) %>%
+    summarise(ngbh = n()) %>%
+    mutate(freq = ngbh / sum(ngbh))
+    
+    # Removing NA
+    proportion[complete.cases(proportion), ]
+}
+```
+
+####  Average availability over the next 30 days for each room type / house size / neighborhood
+
+```{r}
+aggregated_availability <- function(selected_city){ 
+    avg_availability <- listings %>%
+    filter(city == selected_city) %>%
+    group_by(room_type,bedrooms,neighbourhood_cleansed) %>%
+    summarise(mean_availability_30 = mean(availability_30))
+
+    # Removing NA
+    avg_availability[complete.cases(avg_availability), ]
+}
+```
+
+#### Average revenue over the next 30 days for each room type / house size / neighborhood
+
+```{r}
+aggregated_revenue <- function(selected_city){ 
+    avg_revenue <- listings %>%
+    filter(city == selected_city) %>%
+    group_by(room_type,bedrooms,neighbourhood_cleansed) %>%
+    summarise(mean_revenue_30 = mean(revenue_30))
+
+    # Removing NA
+    avg_revenue[complete.cases(avg_revenue), ]
+}
+```
+
+####  Distribution of availability over the next 30 days for each room type / house size / neighborhood
+
+```{r}
+availability_plotting <- function(selected_city){
+    specified <- listings[complete.cases(listings), ] %>%
+      filter(city == selected_city)
+    
+    q <- ggplot(specified, aes(bedrooms, availability_30))
+    q+stat_summary(fun.y="mean", geom="point")+
+    facet_grid(room_type~neighbourhood_cleansed)+
+    theme(strip.text.x = element_text(angle = 90), strip.text.y = element_text(angle = 0))
+}
+```
+
+####  Distribution of revenue over the next 30 days for each room type / house size / neighborhood
+
+```{r}
+revenue_plotting <- function(selected_city){
+    specified <- listings[complete.cases(listings), ] %>%
+      filter(city == selected_city)
+    
+    q <- ggplot(specified, aes(bedrooms, revenue_30))
+    q+stat_summary(fun.y="mean", geom="point")+
+    facet_grid(room_type~neighbourhood_cleansed)+
+    theme(strip.text.x = element_text(angle = 90), strip.text.y = element_text(angle = 0))
+    
+}
+```
+
+### A. Malaga
+
+```{r}
+selected_city <- 'malaga'
+selected_city
+```
+
+#### 1. What is the proportion of each room type?
+
+```{r}
+aggregated_room_types(selected_city)
+```
+
+#### 2. What is the proportion of each house size (# of bedroom)?
+
+```{r}
+aggregated_house_size(selected_city)
+```
+
+#### 3. What is the proportion of each neighborhood?
+
+```{r}
+aggregated_neighborhood(selected_city)
+```
+
+#### 4. What is the average availability over the next 30 days for each room type / house size / neighborhood?
+
+```{r}
+aggregated_availability(selected_city)
+```
+
+#### 5. What is the average revenue over the next 30 days for each room type / house size / neighborhood?
+
+```{r}
+aggregated_revenue(selected_city)
+```
+
+#### 6. What is the distribution of availability over the next 30 days for each room type/ house size / neighborhood?
+
+```{r}
+availability_plotting(selected_city)
+```
+
+#### 7. What is the distribution of revenue over the next 30 days for each room type / house size / neighborhood? 
+
+```{r}
+revenue_plotting(selected_city)
+```
+
+### B. Mallorca
+
+```{r}
+selected_city <- 'mallorca'
+selected_city
+```
+
+#### 1. What is the proportion of each room type?
+
+```{r}
+aggregated_room_types(selected_city)
+```
+
+#### 2. What is the proportion of each house size (# of bedroom)?
+
+```{r}
+aggregated_house_size(selected_city)
+```
+
+#### 3. What is the proportion of each neighborhood?
+
+```{r}
+aggregated_neighborhood(selected_city)
+```
+
+#### 4. What is the average availability over the next 30 days for each room type / house size / neighborhood?
+
+```{r}
+aggregated_availability(selected_city)
+```
+
+#### 5. What is the average revenue over the next 30 days for each room type / house size / neighborhood?
+
+```{r}
+aggregated_revenue(selected_city)
+```
+
+#### 6. What is the distribution of availability over the next 30 days for each room type/ house size / neighborhood?
+
+```{r}
+options(repr.plot.width = 25, repr.plot.height = 10)
+availability_plotting(selected_city)
+```
+
+#### 7. What is the distribution of revenue over the next 30 days for each room type / house size / neighborhood? 
+
+```{r}
+revenue_plotting(selected_city)
+```
+
+### C. Sevilla
+
+```{r}
+selected_city <- 'sevilla'
+selected_city
+```
+
+#### 1. What is the proportion of each room type?
+
+```{r}
+aggregated_room_types(selected_city)
+```
+
+#### 2. What is the proportion of each house size (# of bedroom)?
+
+```{r}
+aggregated_house_size(selected_city)
+```
+
+#### 3. What is the proportion of each neighborhood?
+
+```{r}
+aggregated_neighborhood(selected_city)
+```
+
+#### 4. What is the average availability over the next 30 days for each room type / house size / neighborhood?
+
+```{r}
+aggregated_availability(selected_city)
+```
+
+#### 5. What is the average revenue over the next 30 days for each room type / house size / neighborhood?
+
+```{r}
+aggregated_revenue(selected_city)
+```
+
+#### 6. What is the distribution of availability over the next 30 days for each room type/ house size / neighborhood?
+
+```{r}
+options(repr.plot.width = 40, repr.plot.height = 15)
+availability_plotting(selected_city)
+```
+
+#### 7. What is the distribution of revenue over the next 30 days for each room type / house size / neighborhood? 
+
+```{r}
+revenue_plotting(selected_city)
+```
+
+## Additional Analysis :
+### Compute the break even point 
+
+_Break Event Point_ : the point at which a business starts to make as much money as it has spent on a particular product, activity, etc
+The BEP monitors how fast or how much money is required for the invest to make benefits : it is **widely used by managers to interpret the profitability of a product**, in our case : the profitability of the invest.
+
+#### Calculation
+$$Break Even Point = {\sum{Fixed Cost} \over Income – VariableCostsPerUnit}.$$
+
+* Fixed costs are costs that are not related to the activity
+* Variable costs are costs related to the activity
+* Income is the money earned
+
+
+#### Additionnal Data :
+In this particular case : 
+* Fixed costs : Price of the Rent
+* Variable costs : Electricity
+* Income : Revenue over 365 days
+Data extracted by this [website](https://www.combien-coute.net/)
+
+
+|Ville| Sevilla  | Malaga | Majorqua  | 
+|--|--|--|--|
+|Square Meter| **2516.67 €** | **2842.86 €** | **3483.33 €** |
+|Variable Expenses| **126.44 €** | **112.01 €** | **107.92 €**|
+
+#### Consideration : 
+For the ease of the data harvesting we consider that:
+* the square meter price is even in each city
+* the average size for a bedroom is 10 square meter
+* each house as a lounge room of a size : ```1,5*number of room+7,5```
+* the price of the electricity is the same for every house
+
+### Bonus :
+For each city :
+- [ ] Fetch the price of squaremeter in each city : fixed cost
+- [ ] Fetch the price of the electricity and water in each city : variable cost 
+- [ ] Compute the breakeven point in days and in € : Fixed Cost / (Income-variable cost)
+
+### For the 3 cities
+
+```{r}
+cities <- c("sevilla","malaga", "mallorca")
+square_meter <- c(2516.67,2842.86,3483.33)
+charges <- c(126.44,112.01,107.92)
+```
+
+```{r}
+for(i in 1:length(cities)){
+    city <- cities[i]
+    bool_index <- listings_full$city==city
+    # Creating fixed costs column 
+    fixed_cost<-(square_meter[i]*(listings_full[bool_index,]$bedrooms* 10 + (1.5*listings_full[bool_index,]$bedrooms+8.5)))
+    listings_full[bool_index, 'fixed_cost'] <- fixed_cost
+    # Creating var costs column
+    listings_full[bool_index, 'var_cost'] <- ((charges[i]/31) * (365-as.integer(listings_full[bool_index, ]$availability_365)))
+    # Break Even Point in Year
+    listings_full[bool_index,'bep_year'] <- listings_full[bool_index,]$fixed_cost/(listings_full[bool_index,]$revenue_365-listings_full[bool_index,]$var_cost)
+    # Break Even Point in Turnover
+    listings_full[bool_index,'bep_turnover'] <- listings_full[bool_index,]$fixed_cost/((listings_full[bool_index,]$revenue_365-listings_full[bool_index,]$var_cost)/listings_full[bool_index,]$revenue_365)
+}
+```
+
+```{r}
+avg_bep_year <- aggregate(listings_full$bep_year,list(listings_full$city),mean)
+avg_bep_year
+```
+
+```{r}
+distrib_bep_year <- ggplot(listings_full, aes(city, bep_turnover))
+distrib_bep_year + geom_boxplot(aes(colour = "red"), outlier.shape = NA) +
+    scale_y_continuous(limits = quantile(listings$bep_turnover, c(0.1, 0.9), na.rm = T))
+```
+
+```{r}
+# To smooth the Break Even Point in Year
+listings_full$bep_year[listings_full$bep_year>100] <- 100
+p<- ggplot(listings_full, aes(x=bep_year, color=city)) +
+  geom_density(size=0.5)+
+  labs(title="Break Even Point density curve",x="Year", y = "Density")
+p
+```
+
+```{r}
+distrib_bep_year <- ggplot(listings_full, aes(city, bep_year))
+distrib_bep_year + geom_boxplot(aes(colour = city), outlier.shape = NA) +
+    scale_y_continuous(limits = quantile(listings$bep_turnover, c(0.1, 0.9), na.rm = T))
+```
+
